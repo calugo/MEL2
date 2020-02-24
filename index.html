@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>three.js webgl - lines - fat - wireframe</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<link type="text/css" rel="stylesheet" href="./three.js-master/examples/main.css">
+	</head>
+
+	<body>
+
+		<div id="container"></div>
+
+		<!--div id="info"><a href="https://threejs.org" target="_blank">three.js</a> - fat lines</div-->
+    <div id="info"><a></a></div>
+
+		<script type="module">
+
+
+      import * as THREE from './three.js-master/build/three.module.js';
+      import { GUI } from './three.js-master/examples/jsm/libs/dat.gui.module.js';
+      import { OrbitControls } from './three.js-master/examples/jsm/controls/OrbitControls.js';
+      import { ParametricGeometries } from './three.js-master/examples/jsm/geometries/ParametricGeometries.js';
+
+			import Stats from './three.js-master/examples/jsm/libs/stats.module.js';
+
+      import { Line2 } from './three.js-master/examples/jsm/lines/Line2.js';
+      import { LineMaterial } from './three.js-master/examples/jsm/lines/LineMaterial.js';
+      import { LineGeometry } from './three.js-master/examples/jsm/lines/LineGeometry.js';
+      import { GeometryUtils } from './three.js-master/examples/jsm/utils/GeometryUtils.js';
+
+      import { WireframeGeometry2 } from './three.js-master/examples/jsm/lines/WireframeGeometry2.js';
+      import { Wireframe } from './three.js-master/examples/jsm/lines/Wireframe.js';
+
+      var a, b,idv,circ;
+			var wireframe, renderer, scene, camera, camera2, controls;
+			var wireframe1;
+			var matLine, matLineBasic, matLineDashed;
+			var stats;
+			var gui;
+      var dats=[];
+      var sel=0;
+      var phi = 2*Math.PI/5.0;
+      var phi2= 2*Math.PI/10.0;
+      var R=10,Rx;
+
+
+			// viewport
+			var insetWidth;
+			var insetHeight;
+
+			init();
+			animate();
+
+			function init() {
+
+        //let datos = new Request("./CD.json");
+        fetch("./CD.json")
+        .then(function(resp){
+          return resp.json();
+        })
+        .then(function(data){
+          dats=data;
+          initGui();
+          //console.log(dats);
+          //idv=data[0].Individual;
+          //a=data[0]["a-Fused-Sepal-W"];
+          //b=data[0]["b-Free-Sepal-L"];
+          //document.getElementById("info").innerHTML=[];
+          //console.log(a);
+          //console.log(b);
+        });
+
+				renderer = new THREE.WebGLRenderer( { antialias: true } );
+				renderer.setPixelRatio( window.devicePixelRatio );
+				renderer.setClearColor( 0x000000, 0.0 );
+				renderer.setSize( window.innerWidth, window.innerHeight );
+				document.body.appendChild( renderer.domElement );
+
+				scene = new THREE.Scene();
+
+				camera = new THREE.PerspectiveCamera( 40, window.innerWidth / window.innerHeight, 1, 1000 );
+				camera.position.set(  0, 0, 50 );
+
+				camera2 = new THREE.PerspectiveCamera( 40, 1, 1, 1000 );
+				camera2.position.copy( camera.position );
+
+				controls = new OrbitControls( camera, renderer.domElement );
+				controls.minDistance = 10;
+				controls.maxDistance = 500;
+
+
+        matLine = new LineMaterial( {
+        					color: 0x4080ff,
+        					linewidth: 5, // in pixels
+        					//resolution:  // to be set by renderer, eventually
+        					dashed: false
+        				   });
+
+        matLineBasic = new THREE.LineBasicMaterial( { vertexColors: THREE.VertexColors } );
+        matLineDashed = new THREE.LineDashedMaterial( { vertexColors: THREE.VertexColors, scale: 2, dashSize: 1, gapSize: 1 } );
+
+        scene.add( new THREE.AxesHelper( 20 ) );
+
+
+
+				window.addEventListener( 'resize', onWindowResize, false );
+				onWindowResize();
+
+				stats = new Stats();
+				document.body.appendChild( stats.dom );
+
+				//initGui();
+        grapdat();
+
+				//initGui();
+			}
+
+			function onWindowResize() {
+
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+
+				renderer.setSize( window.innerWidth, window.innerHeight );
+
+				insetWidth = window.innerHeight / 4; // square
+				insetHeight = window.innerHeight / 4;
+
+				camera2.aspect = insetWidth / insetHeight;
+				camera2.updateProjectionMatrix();
+
+			}
+
+			function animate() {
+
+				requestAnimationFrame( animate );
+
+				stats.update();
+
+				// main scene
+
+				renderer.setClearColor( 0x000000, 0 );
+
+				renderer.setViewport( 0, 0, window.innerWidth, window.innerHeight );
+
+				// renderer will set this eventually
+				matLine.resolution.set( window.innerWidth, window.innerHeight ); // resolution of the viewport
+
+				renderer.render( scene, camera );
+
+				// inset scene
+
+				renderer.setClearColor( 0x222222, 1 );
+
+				renderer.clearDepth(); // important!
+
+				renderer.setScissorTest( true );
+
+				renderer.setScissor( 20, 20, insetWidth, insetHeight );
+
+				renderer.setViewport( 20, 20, insetWidth, insetHeight );
+
+				camera2.position.copy( camera.position );
+				camera2.quaternion.copy( camera.quaternion );
+
+				// renderer will set this eventually
+				matLine.resolution.set( insetWidth, insetHeight ); // resolution of the inset viewport
+
+				renderer.render( scene, camera2 );
+
+				renderer.setScissorTest( false );
+
+			}
+      ///
+
+
+              function grapdat(){
+
+                // Position and THREE.Color Data
+                var positions = [];
+                var colors = [];
+                console.log(scene);
+
+              	for (let i = scene.children.length - 1; i >= 0; i--) {
+                	if((scene.children[i].type === "Line") || (scene.children[i].type === "Line2"))
+                  	scene.remove(scene.children[i]);
+              		}
+
+
+                var geo = new THREE.CircleGeometry( R, 64 );
+          			geo.vertices.shift();
+                geo.vertices.push(geo.vertices[0]);
+          			var points = geo.vertices;
+          			var spline = new THREE.CatmullRomCurve3( points );
+          			var divisions = Math.round( 12 * points.length );
+          			var color = new THREE.Color();
+          			for ( var i = 0, l = divisions; i < l; i ++ ) {
+          				var point = spline.getPoint( i / l );
+          				positions.push( point.x, point.y, point.z );
+          				color.setHSL( i / l, 1.0, 0.5 );
+          				colors.push( color.r, color.g, color.b );
+          			}
+                //console.log(positions)
+
+                var geometry = new LineGeometry();
+                geometry.setPositions( positions );
+                geometry.setColors( colors );
+                var line = new Line2( geometry, matLine );
+        				line.computeLineDistances();
+        				line.scale.set( 1, 1, 1 );
+        				scene.add( line );
+
+                var geo = new THREE.BufferGeometry();
+                geo.setAttribute( 'position', new THREE.Float32BufferAttribute( positions, 3 ) );
+                geo.setAttribute( 'color', new THREE.Float32BufferAttribute( colors, 3 ) );
+                var line1 = new THREE.Line( geo, matLineBasic );
+                line1.computeLineDistances();
+                line1.visible = false;
+
+                if (sel>0){
+                    console.log("LINES!");
+                    //var phi = 2*Math.PI/5.0;
+                    //var phi2= 2*Math.PI/10.0;
+                    var n=0.
+                    //var Rx=10;
+                    //var R=2*Rx;
+                    var g1 = new LineGeometry();
+                    g1.setPositions([0,0,0,R*Math.cos(n*phi),R*Math.sin(n*phi),0]);
+                    //g1.setColors( colors );
+                    var line1 = new Line2( g1, matLine );
+                    line1.computeLineDistances();
+                    line1.scale.set( 1, 1, 1 );
+                    scene.add( line1 );
+
+
+                    var g1x = new LineGeometry();
+                    g1x.setPositions([0,0,0,Rx*Math.cos(n*phi+phi2),Rx*Math.sin(n*phi+phi2),0]);
+                    //g1x.setColors( 0xe9ff32 );
+                    var line1x = new Line2( g1x, matLine );
+                    line1x.computeLineDistances();
+                    line1x.scale.set( 1, 1, 1 );
+                    scene.add( line1x );
+
+                    var pc1 = new THREE.CubicBezierCurve3(
+	                    new THREE.Vector3( Rx*Math.cos(n*phi+phi2),Rx*Math.sin(n*phi+phi2),0),
+	                    new THREE.Vector3((Rx+0.5*(R-Rx)) *Math.cos(n*phi+phi2), (Rx+0.5*(R-Rx))*Math.sin(n*phi+phi2),0),
+	                    new THREE.Vector3((Rx+0.5*(R-Rx))*Math.cos(n*phi),(Rx+0.5*(R-Rx))*Math.sin(n*phi),0 ),
+	                    new THREE.Vector3( R*Math.cos(n*phi),R*Math.sin(n*phi),0)
+                    );
+
+                    var pc1y = new THREE.CubicBezierCurve3(
+                      new THREE.Vector3( Rx*Math.cos(n*phi+phi2),-Rx*Math.sin(n*phi+phi2),0),
+                      new THREE.Vector3((Rx+0.5*(R-Rx)) *Math.cos(n*phi+phi2), -(Rx+0.5*(R-Rx))*Math.sin(n*phi+phi2),0),
+                      new THREE.Vector3((Rx+0.5*(R-Rx))*Math.cos(n*phi),-(Rx+0.5*(R-Rx))*Math.sin(n*phi),0 ),
+                      new THREE.Vector3( R*Math.cos(n*phi),R*Math.sin(n*phi),0)
+                    );
+
+
+                    var p1pts = pc1.getPoints( 50 );
+                    var p1geo = new THREE.BufferGeometry().setFromPoints( p1pts );
+                    var petmat = new THREE.LineBasicMaterial( { color : 0xff0000 } );
+                    // Create the final object to add to the scene
+                    var pet1 = new THREE.Line( p1geo, petmat );
+                    scene.add(pet1);
+
+                    var p1ptsy = pc1y.getPoints( 50 );
+                    var p1geoy = new THREE.BufferGeometry().setFromPoints( p1ptsy );
+                    //var petmat = new THREE.LineBasicMaterial( { color : 0xff0000 } );
+                    // Create the final object to add to the scene
+                    var pet1y = new THREE.Line( p1geoy, petmat );
+                    scene.add(pet1y);
+
+
+
+                    var pet2=pet1.clone();
+                    pet2.rotation.z=phi;
+                    scene.add(pet2);
+
+                    var pet2y=pet1y.clone();
+                    pet2y.rotation.z=phi;
+                    scene.add(pet2y);
+
+                    var pet3=pet2.clone();
+                    pet3.rotation.z=2*phi;
+                    scene.add(pet3);
+                    var pet3y=pet2y.clone();
+                    pet3y.rotation.z=2*phi;
+                    scene.add(pet3y);
+
+
+
+                    var pet4=pet3.clone();
+                    pet4.rotation.z=3*phi;
+                    scene.add(pet4);
+                    var pet4y=pet3y.clone();
+                    pet4y.rotation.z=3*phi;
+                    scene.add(pet4y);
+
+
+                    var pet5=pet4.clone();
+                    pet5.rotation.z=4*phi;
+                    scene.add(pet5);
+
+
+                    var pet5y=pet4y.clone();
+                    pet5y.rotation.z=4*phi;
+                    scene.add(pet5y);
+
+                    /////
+                    n=1
+                    var g2 = new LineGeometry();
+                    g2.setPositions([0,0,0,R*Math.cos(n*phi),R*Math.sin(n*phi),0]);
+                    //g2.setColors( colors );
+                    var line2 = new Line2( g2, matLine );
+                    line2.computeLineDistances();
+                    line2.scale.set( 1, 1, 1 );
+                    scene.add( line2 );
+
+
+                    var g2x = new LineGeometry();
+                    g2x.setPositions([0,0,0,Rx*Math.cos(n*phi+phi2),Rx*Math.sin(n*phi+phi2),0]);
+                    //g1.setColors( colors );
+                    var line2x = new Line2( g2x, matLine );
+                    line2x.computeLineDistances();
+                    line2x.scale.set( 1, 1, 1 );
+                    scene.add( line2x );
+                    ///
+                    n=2
+                    var g3 = new LineGeometry();
+                    g3.setPositions([0,0,0,R*Math.cos(n*phi),R*Math.sin(n*phi),0]);
+                    //g2.setColors( colors );
+                    var line3 = new Line2( g3, matLine );
+                    line3.computeLineDistances();
+                    line3.scale.set( 1, 1, 1 );
+                    scene.add( line3 );
+
+
+                    var g3x = new LineGeometry();
+                    g3x.setPositions([0,0,0,Rx*Math.cos(n*phi+phi2),Rx*Math.sin(n*phi+phi2),0]);
+                    //g1.setColors( colors );
+                    var line3x = new Line2( g3x, matLine );
+                    line3x.computeLineDistances();
+                    line3x.scale.set( 1, 1, 1 );
+                    scene.add( line3x );
+                    //
+                    n=3
+                    var g4 = new LineGeometry();
+                    g4.setPositions([0,0,0,R*Math.cos(n*phi),R*Math.sin(n*phi),0]);
+                    //g2.setColors( colors );
+                    var line4 = new Line2( g4, matLine );
+                    line4.computeLineDistances();
+                    line4.scale.set( 1, 1, 1 );
+                    scene.add( line4 );
+
+                    var g4x = new LineGeometry();
+                    g4x.setPositions([0,0,0,Rx*Math.cos(n*phi+phi2),Rx*Math.sin(n*phi+phi2),0]);
+                    //g2.setColors( colors );
+                    var line4x = new Line2( g4x, matLine );
+                    line4x.computeLineDistances();
+                    line4x.scale.set( 1, 1, 1 );
+                    scene.add( line4x );
+
+                    ///
+                    n=4
+                    var g5 = new LineGeometry();
+                    g5.setPositions([0,0,0,R*Math.cos(n*phi),R*Math.sin(n*phi),0]);
+                    //g2.setColors( colors );
+                    var line5 = new Line2( g5, matLine );
+                    line5.computeLineDistances();
+                    line5.scale.set( 1, 1, 1 );
+                    scene.add( line5 );
+
+                    var g5x = new LineGeometry();
+                    g5x.setPositions([0,0,0,Rx*Math.cos(n*phi+phi2),Rx*Math.sin(n*phi+phi2),0]);
+                    //g2.setColors( colors );
+                    var line5x = new Line2( g5x, matLine );
+                    line5x.computeLineDistances();
+                    line5x.scale.set( 1, 1, 1 );
+                    scene.add( line5x );
+
+
+                    //var g3 = new LineGeometry();
+                    //var g3 = new LineGeometry();
+                    //var g4 = new LineGeometry();
+
+               }
+              }
+
+			//
+
+			function initGui() {
+
+				gui = new GUI();
+
+				var param = {
+          'Individual': [],
+					'line type': 0,
+					'width (px)': 5,
+					'dashed': false,
+					'dash scale': 1,
+					'dash / gap': 1
+				};
+
+        //console.log(Object.keys(dats).length);
+        var N= Object.keys(dats).length;
+        //console.log(N);
+        var ind =[]
+        var indx ={}
+        for (let jk = 0; jk<N; jk++) {
+         //console.log(dats[jk]);
+         ind.push(jk.toString()+"-"+dats[jk].Individual);
+         indx[jk.toString()+"-"+dats[jk].Individual]={
+           a :dats[jk]["a-Fused-Sepal-W"],
+           b: dats[jk]["b-Fused-Sepal-L"]
+         }
+        }
+        //console.log(ind)
+        //console.log(indx)
+        gui.add( param, 'Individual', ind).onChange( function(val){
+          //console.log(val);
+          sel=1;
+          document.getElementById("info").innerHTML=val+" a:"+indx[val].a+" b:"+indx[val].b;
+          Rx=indx[val].a/phi;
+          R=Rx+indx[val].b;
+          console.log(indx[val])
+          grapdat();
+        });
+
+				gui.add( param, 'line type', { 'LineGeometry': 0 } ).onChange( function ( val ) {
+
+					switch ( val ) {
+
+						case '0':
+							//wireframe.visible = true;
+
+							//wireframe1.visible = false;
+
+							break;
+
+						case '1':
+							//wireframe.visible = false;
+
+							//wireframe1.visible = true;
+
+							break;
+
+					}
+
+				} );
+
+				gui.add( param, 'width (px)', 1, 10 ).onChange( function ( val ) {
+
+					matLine.linewidth = val;
+
+				} );
+
+				gui.add( param, 'dashed' ).onChange( function ( val ) {
+
+					matLine.dashed = val;
+
+					// dashed is implemented as a defines -- not as a uniform. this could be changed.
+					// ... or THREE.LineDashedMaterial could be implemented as a separate material
+					// temporary hack - renderer should do this eventually
+					if ( val ) matLine.defines.USE_DASH = ""; else delete matLine.defines.USE_DASH;
+					matLine.needsUpdate = true;
+
+					//wireframe1.material = val ? matLineDashed : matLineBasic;
+
+				} );
+
+				gui.add( param, 'dash scale', 0.5, 1, 0.1 ).onChange( function ( val ) {
+
+					matLine.dashScale = val;
+					matLineDashed.scale = val;
+
+				} );
+
+				gui.add( param, 'dash / gap', { '2 : 1': 0, '1 : 1': 1, '1 : 2': 2 } ).onChange( function ( val ) {
+
+					switch ( val ) {
+
+						case '0':
+							matLine.dashSize = 2;
+							matLine.gapSize = 1;
+
+							matLineDashed.dashSize = 2;
+							matLineDashed.gapSize = 1;
+
+							break;
+
+						case '1':
+							matLine.dashSize = 1;
+							matLine.gapSize = 1;
+
+							matLineDashed.dashSize = 1;
+							matLineDashed.gapSize = 1;
+
+							break;
+
+						case '2':
+							matLine.dashSize = 1;
+							matLine.gapSize = 2;
+
+							matLineDashed.dashSize = 1;
+							matLineDashed.gapSize = 2;
+
+							break;
+
+					}
+
+				} );
+
+			}
+
+		</script>
+
+	</body>
+
+</html>
